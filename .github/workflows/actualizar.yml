@@ -1,0 +1,52 @@
+name: Actualizar Pizarra Props
+
+on:
+  schedule:
+    - cron: "52 15 * * *"   # todos los días 9:52 a. m. hora del centro de México
+  workflow_dispatch: {}       # botón "Run workflow" para actualizar a mano
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas pyarrow
+      - name: NFL
+        run: |
+          bash scripts/nfl/download.sh raw_nfl
+          python scripts/nfl/process.py raw_nfl data_nfl.json
+          python scripts/build_page.py scripts/nfl/app.html data_nfl.json site/nfl/index.html "Pizarra NFL"
+      - name: NBA
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          python scripts/nba/download.py raw_nba
+          python scripts/nba/fetch_odds.py raw_nba
+          python scripts/nba/process_nba.py raw_nba data_nba.json
+          python scripts/build_page.py scripts/nba/app.html data_nba.json site/nba/index.html "Pizarra NBA"
+      - run: cp index.html site/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

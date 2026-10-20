@@ -1,0 +1,5 @@
+raw_nfl/
+raw_nba/
+data_*.json
+site/
+__pycache__/
